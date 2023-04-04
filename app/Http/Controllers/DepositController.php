@@ -2,20 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\AddMoneyRequest;
+use App\Models\Deposit;
 use Exception;
-use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Request;
-use App\Models\Deposit;
 use Illuminate\Support\Str;
 
 class DepositController extends Controller
 {
-    public function balance(Request $request, Deposit $deposit)
+    public function balance(Request $request)
     {
-        $balance = $deposit->where('user_id', $request->input('user_id'));
+        $balance = Deposit::where('user_id', $request->input('user_id'));
         $balance = $balance->sum('credit') - $balance->sum('debit');
 
         return response()->json([
@@ -23,22 +22,22 @@ class DepositController extends Controller
         ]);
     }
 
-    public function addMoney(AddMoneyRequest $request, Deposit $deposit)
+    public function addMoney(Request $request, Deposit $deposit): JsonResponse
     {
-        $amount = $request->input('amount');
+        $request->validate([
+            'user_id' => 'required|integer',
+            'amount' => 'required|integer|notIn:0',
+        ]);
+
         try {
+            if ($request->input('amount') > 0) {
+                $deposit->credit = $request->input('amount');
+            } else {
+                $deposit->debit = $request->input('amount');
+            }
+
             $deposit->uuid = Str::uuid();
             $deposit->user_id = $request->input('user_id');
-            switch ($amount) {
-                case $amount > 0:
-                    $deposit->credit = $amount;
-                    break;
-                case $amount < 0:
-                    $deposit->debit = $amount;
-                    break;
-                default:
-                    throw new Exception("");
-            }
             $deposit->save();
         } catch (Exception $exception) {
             Log::debug('DepositController@addMoney', [
