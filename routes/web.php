@@ -24,11 +24,6 @@ $router->group(['prefix' => 'api/v1/'], function () use ($router) {
         'uses' => 'DepositController@balance',
     ]);
 
-    $router->get('report/{user_id}', [
-        'as' => 'get.report',
-        'uses' => 'DepositController@report',
-    ]);
-
     $router->post('add-money/', [
         'as' => 'add.money',
         'uses' => 'DepositController@addMoney',

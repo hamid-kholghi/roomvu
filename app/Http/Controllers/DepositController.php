@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AddMoneyRequest;
 use Exception;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -12,59 +13,42 @@ use Illuminate\Support\Str;
 
 class DepositController extends Controller
 {
-    public function balance(Request $request)
+    public function balance(Request $request, Deposit $deposit)
     {
-        $balance = Deposit::where('user_id', $request->input('user_id'));
+        $balance = $deposit->where('user_id', $request->input('user_id'));
         $balance = $balance->sum('credit') - $balance->sum('debit');
+
         return response()->json($balance);
     }
 
-    public function addMoney(Request $request)
+    public function addMoney(AddMoneyRequest $request, Deposit $deposit)
     {
         $amount = $request->input('amount');
-        DB::beginTransaction();
         try {
-            $credit = new Deposit();
-            $credit->uuid = Str::uuid();
-            $credit->user_id = $request->input('user_id');
-            $credit->debit = ($amount < 0) ? $request->input('amount') : 0;
-            $credit->credit = ($amount > 0) ? $request->input('amount') : 0;
-            $credit->save();
-            DB::commit();
-
-            return response()->json([
-                'reference_id' => $credit->uuid,
-            ]);
+            $deposit->uuid = Str::uuid();
+            $deposit->user_id = $request->input('user_id');
+            switch ($amount) {
+                case $amount > 0:
+                    $deposit->credit = $amount;
+                    break;
+                case $amount < 0:
+                    $deposit->debit = $amount;
+                    break;
+                default:
+                    throw new Exception("");
+                    break;
+            }
+            $deposit->save();
         } catch (Exception $exception) {
-            DB::rollBack();
-            Log::debug('DepositController@credit', [
+            Log::debug('DepositController@addMoney', [
                 'message' => $exception->getMessage(),
                 'errorCode' => $exception->getCode(),
                 'data' => $request->all(),
             ]);
         }
-    }
 
-    public function report(Request $request)
-    {
-        try {
-            $reports = Deposit::where('user_id', '=', $request->input('user_id'))
-                ->firstOrFail();
-
-            return response()->json($reports);
-        } catch (Exception $exception) {
-            Log::error('DepositController@report', [
-                'message' => $exception->getMessage(),
-                'errorCode' => $exception->getCode(),
-                'data' => $request->all(),
-            ]);
-
-            return response()->json([
-                'status' => 'failed',
-                'statusCode' => 400,
-                'message' => '$message',
-                'data' => [],
-            ], 400);
-        }
+        return response()->json([
+            'reference_id' => $deposit->uuid,
+        ]);
     }
 }
