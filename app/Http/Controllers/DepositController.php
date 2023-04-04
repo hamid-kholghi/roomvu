@@ -18,7 +18,9 @@ class DepositController extends Controller
         $balance = $deposit->where('user_id', $request->input('user_id'));
         $balance = $balance->sum('credit') - $balance->sum('debit');
 
-        return response()->json($balance);
+        return response()->json([
+            'balance' => $balance,
+        ]);
     }
 
     public function addMoney(AddMoneyRequest $request, Deposit $deposit)
@@ -36,7 +38,6 @@ class DepositController extends Controller
                     break;
                 default:
                     throw new Exception("");
-                    break;
             }
             $deposit->save();
         } catch (Exception $exception) {
